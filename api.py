@@ -159,8 +159,10 @@ class SummarizeResponse(BaseModel):
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    logger.info("Starting AI Tutor API")
     get_model()
     yield
+    logger.info("Shutting down AI Tutor API")
 
 
 app = FastAPI(title="AI Tutor API", version="1.0.0", lifespan=lifespan)
