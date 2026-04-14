@@ -50,7 +50,9 @@ def _read_uploaded_file(filename: str, content: bytes) -> str:
 
         reader = PdfReader(BytesIO(content))
         return "\n".join((page.extract_text() or "") for page in reader.pages)
-    return content.decode("utf-8", errors="ignore")
+    if suffix == ".txt":
+        return content.decode("utf-8", errors="ignore")
+    raise ValueError(f"Unsupported file type for '{filename}'. Only .txt and .pdf are allowed.")
 
 
 def _normalize_text(text: str) -> str:
@@ -152,3 +154,14 @@ def retrieve_context(query: str, top_k: int = 3) -> list[str]:
 
     scored_chunks.sort(key=lambda item: item[0], reverse=True)
     return [chunk for _, chunk in scored_chunks[:top_k]]
+
+
+def retrieve_combined_context(session_id: str | None, query: str, top_k: int = 5) -> list[str]:
+    """
+    Retrieve the most relevant context chunks from built-in docs and uploaded docs.
+    """
+    chunks: list[str] = []
+    chunks.extend(retrieve_context(query, max(1, top_k // 2)))
+    if session_id:
+        chunks.extend(retrieve_uploaded_context(session_id, query, max(1, top_k - len(chunks))))
+    return chunks[:top_k]

@@ -5,7 +5,7 @@ import re
 from typing import Literal
 
 from model import TutorModel, NUM_PREDICT
-from rag import retrieve_context, retrieve_uploaded_context
+from rag import retrieve_combined_context
 from verifier import assess_answer, extract_equations, verify_equations
 
 
@@ -283,9 +283,7 @@ def generate_answer(
 ) -> dict[str, str]:
     question = clean_text(question)
     query_type = classify_query(model, question)
-    retrieved_docs = retrieve_context(question)
-    if session_id:
-        retrieved_docs.extend(retrieve_uploaded_context(session_id, question))
+    retrieved_docs = retrieve_combined_context(session_id, question)
     answer = _clean_chat_answer(
         model.generate(build_chat_prompt(question, level, history, retrieved_docs), max_new_tokens=NUM_PREDICT)
     )
