@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import logging
 from collections import OrderedDict
 from functools import lru_cache
 from threading import Lock
@@ -16,6 +17,7 @@ TOP_P = float(os.environ.get("AITUTOR_TOP_P", "0.9"))
 NUM_PREDICT = int(os.environ.get("AITUTOR_NUM_PREDICT", "800"))
 NUM_CTX = int(os.environ.get("AITUTOR_NUM_CTX", "4096"))
 CACHE_SIZE = 128
+logger = logging.getLogger("ai_tutor.model")
 
 
 def generate_response(prompt: str, *, stream: bool = False, num_predict: int = NUM_PREDICT) -> str:
@@ -37,6 +39,7 @@ def generate_response(prompt: str, *, stream: bool = False, num_predict: int = N
         method="POST",
     )
 
+    logger.debug("Sending request to Ollama endpoint: %s", OLLAMA_URL)
     try:
         with urlopen(request, timeout=180) as response:
             if stream:
@@ -50,8 +53,10 @@ def generate_response(prompt: str, *, stream: bool = False, num_predict: int = N
             data = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="ignore") or exc.reason
+        logger.error("Ollama HTTPError from %s: %s", OLLAMA_URL, detail)
         raise RuntimeError(f"Ollama request failed: {detail}") from exc
     except URLError as exc:
+        logger.error("Could not reach Ollama at %s: %s", OLLAMA_URL, exc)
         raise RuntimeError(
             "Could not reach Ollama at "
             f"{OLLAMA_URL}. Ensure Ollama is running in the same network environment. "
@@ -60,6 +65,18 @@ def generate_response(prompt: str, *, stream: bool = False, num_predict: int = N
             "http://localhost:11434/api/generate, "
             "http://host.docker.internal:11434/api/generate, or "
             "http://<WSL-bridge-IP>:11434/api/generate."
+        ) from exc
+    except TimeoutError as exc:
+        logger.error("Timed out connecting to Ollama at %s", OLLAMA_URL)
+        raise RuntimeError(
+            f"Timed out while contacting Ollama at {OLLAMA_URL}. "
+            "Ensure Ollama is running and reachable."
+        ) from exc
+    except OSError as exc:
+        logger.error("OSError while contacting Ollama at %s: %s", OLLAMA_URL, exc)
+        raise RuntimeError(
+            f"Could not reach Ollama at {OLLAMA_URL}. "
+            "Ensure Ollama is running and reachable."
         ) from exc
 
     return data.get("response", "").strip()

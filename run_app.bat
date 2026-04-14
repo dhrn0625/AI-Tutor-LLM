@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 
 cd /d "%~dp0"
 title AI Tutor Launcher
@@ -90,10 +90,27 @@ if not exist "%~dp0streamlit_app.py" (
 )
 
 echo [STEP] Starting FastAPI backend in a new window...
-start "AI Tutor API" cmd /k python -m uvicorn api:app --host %API_HOST% --port %API_PORT% --log-level debug
+start "AI Tutor API" cmd /k ""%VENV_PYTHON%" -m uvicorn api:app --host %API_HOST% --port %API_PORT% --log-level debug"
 
 echo [STEP] Waiting for backend startup...
-timeout /t 3 /nobreak >nul
+set "BACKEND_READY=0"
+for /l %%I in (1,1,20) do (
+    "%VENV_PYTHON%" -c "import urllib.request; urllib.request.urlopen('http://%API_HOST%:%API_PORT%/health', timeout=2).read()"
+    if "!ERRORLEVEL!"=="0" (
+        set "BACKEND_READY=1"
+        goto :backend_ready
+    )
+    timeout /t 1 /nobreak >nul
+)
+
+:backend_ready
+if not "%BACKEND_READY%"=="1" (
+    echo [WARN] Backend did not report healthy on http://%API_HOST%:%API_PORT%/health
+    echo [WARN] Streamlit will still start so you can inspect logs in the API window.
+    echo.
+) else (
+    echo [INFO] Backend is healthy.
+)
 
 echo [STEP] Launching Streamlit frontend...
 echo [INFO] The browser should open automatically.
