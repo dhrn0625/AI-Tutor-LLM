@@ -76,7 +76,7 @@ IMPORTANT:
 Use the following context if relevant:
 {retrieved_docs}
 
-Conversation:
+Conversation (last 10 messages):
 {context}
 
 Student: {query}
