@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Literal
 
 from model import TutorModel, NUM_PREDICT
@@ -343,5 +344,20 @@ def generate_structured_answer(model: TutorModel, question: str, level: Level) -
     return {"type": query_type, "level": level, "answer": _finalize_structured_answer(parsed, question)}
 
 
+def _read_summary_source(text: str) -> str:
+    candidate = Path(text.strip())
+    if not candidate.exists() or not candidate.is_file():
+        return text
+
+    if candidate.suffix.lower() == ".pdf":
+        from pypdf import PdfReader
+
+        reader = PdfReader(candidate)
+        return "\n".join((page.extract_text() or "") for page in reader.pages)
+
+    return candidate.read_text(encoding="utf-8", errors="ignore")
+
+
 def summarize_text(model: TutorModel, text: str) -> str:
-    return model.generate(SUMMARY_PROMPT.format(text=clean_text(text)), max_new_tokens=NUM_PREDICT // 2)
+    source_text = _read_summary_source(text)
+    return model.generate(SUMMARY_PROMPT.format(text=clean_text(source_text)), max_new_tokens=NUM_PREDICT // 2)

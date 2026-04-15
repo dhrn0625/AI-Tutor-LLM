@@ -4,7 +4,7 @@ import re
 from collections import defaultdict
 from functools import lru_cache
 from io import BytesIO
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 from threading import Lock
 
 
@@ -27,9 +27,7 @@ def _normalize_filename(filename: str) -> str:
     cleaned = filename.strip()
     if not cleaned:
         return ""
-    windows_name = PureWindowsPath(cleaned).name
-    posix_name = PurePosixPath(cleaned).name
-    return windows_name if len(windows_name) <= len(posix_name) else posix_name
+    return Path(cleaned.replace("\\", "/")).name
 
 
 def _chunk_text(text: str) -> list[str]:
@@ -54,7 +52,7 @@ def _read_file(path: Path) -> str:
     if path.suffix.lower() == ".pdf":
         from pypdf import PdfReader
 
-        reader = PdfReader(str(path))
+        reader = PdfReader(path)
         return "\n".join((page.extract_text() or "") for page in reader.pages)
     return path.read_text(encoding="utf-8", errors="ignore")
 

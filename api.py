@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import logging
 import traceback
+from pathlib import Path
 from contextlib import asynccontextmanager
 from time import perf_counter
 from threading import Lock
@@ -267,8 +268,7 @@ async def upload_documents(request: UploadDocumentsRequest) -> DocumentsResponse
     try:
         logger.info("Uploading %s document(s) for session_id=%s", len(request.files), request.session_id)
         for file in request.files:
-            suffix = file.name.lower().rsplit(".", 1)
-            extension = f".{suffix[-1]}" if len(suffix) > 1 else ""
+            extension = Path(file.name.replace("\\", "/")).suffix.lower()
             if extension not in allowed_extensions:
                 raise ValueError(f"Unsupported file type for '{file.name}'.")
             content = base64.b64decode(file.content_base64.encode("utf-8"), validate=True)
