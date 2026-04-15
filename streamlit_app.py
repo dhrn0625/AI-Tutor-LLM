@@ -319,6 +319,7 @@ def main() -> None:
                     confidence = float(result.get("confidence", 0.0))
                     latency_ms = int(result.get("latency_ms", 0))
                     issues = result.get("issues", "")
+                    videos = list(result.get("videos", []))
                 except RuntimeError as exc:
                     answer = str(exc)
                     confidence = 0.0
@@ -336,10 +337,6 @@ def main() -> None:
                             "issues": issues,
                         }
                     )
-                    try:
-                        videos = fetch_videos(question)
-                    except RuntimeError:
-                        videos = []
 
         st.session_state.latest_confidence = confidence
         st.session_state.latest_latency_ms = latency_ms

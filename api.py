@@ -69,6 +69,7 @@ class AskResponse(BaseModel):
     latency_ms: int
     issues: str = ""
     verdict: str = "reliable"
+    videos: list["VideoItem"] = Field(default_factory=list)
 
 
 class UploadDocumentItem(BaseModel):
@@ -192,6 +193,7 @@ async def health() -> dict[str, str]:
 
 @app.post("/ask", response_model=AskResponse)
 async def ask(request: AskRequest) -> AskResponse:
+    videos: list[dict[str, str]] = []
     try:
         level = normalize_level(request.level)
         history = get_session_history(request.session_id)
@@ -206,6 +208,7 @@ async def ask(request: AskRequest) -> AskResponse:
             request.session_id,
         )
         latency_ms = int((perf_counter() - started) * 1000)
+        videos = await run_in_threadpool(recommend_videos, request.question, 3)
         append_session_message(request.session_id, "user", request.question)
         append_session_message(request.session_id, "assistant", result["answer"])
         logger.info("Completed /ask for session_id=%s in %sms", request.session_id, latency_ms)
@@ -218,7 +221,7 @@ async def ask(request: AskRequest) -> AskResponse:
     except Exception as exc:
         logger.error("Unhandled error during /ask: %s\n%s", exc, traceback.format_exc())
         raise HTTPException(status_code=500, detail="failed to generate answer") from exc
-    return AskResponse(**result, latency_ms=latency_ms)
+    return AskResponse(**result, latency_ms=latency_ms, videos=videos)
 
 
 @app.post("/structured", response_model=StructuredResponse)
