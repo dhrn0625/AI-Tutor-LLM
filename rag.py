@@ -4,7 +4,7 @@ import re
 from collections import defaultdict
 from functools import lru_cache
 from io import BytesIO
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from threading import Lock
 
 
@@ -14,6 +14,22 @@ CHUNK_OVERLAP = 200
 
 _SESSION_DOCUMENTS: dict[str, list[dict[str, object]]] = defaultdict(list)
 _SESSION_DOCUMENTS_LOCK = Lock()
+
+
+def _normalize_filename(filename: str) -> str:
+    """
+    Convert incoming file names to a portable basename.
+
+    Browsers and clients may send Windows-style paths such as
+    ``C:\\fakepath\\notes.txt``. Keep only the leaf name so uploaded
+    document handling is consistent across platforms.
+    """
+    cleaned = filename.strip()
+    if not cleaned:
+        return ""
+    windows_name = PureWindowsPath(cleaned).name
+    posix_name = PurePosixPath(cleaned).name
+    return windows_name if len(windows_name) <= len(posix_name) else posix_name
 
 
 def _chunk_text(text: str) -> list[str]:
@@ -94,20 +110,24 @@ def _load_index() -> list[dict[str, str]]:
 
 
 def add_uploaded_document(session_id: str, filename: str, content: bytes) -> str:
-    text = _normalize_text(_read_uploaded_file(filename, content))
+    normalized_name = _normalize_filename(filename)
+    if not normalized_name:
+        raise ValueError("Uploaded file name must not be empty.")
+
+    text = _normalize_text(_read_uploaded_file(normalized_name, content))
     if not text:
-        raise ValueError(f"No readable text found in '{filename}'.")
+        raise ValueError(f"No readable text found in '{normalized_name}'.")
 
     entry = {
-        "name": filename,
+        "name": normalized_name,
         "content": text,
         "chunks": _chunk_text(text),
     }
     with _SESSION_DOCUMENTS_LOCK:
         documents = _SESSION_DOCUMENTS[session_id]
-        documents[:] = [document for document in documents if document["name"] != filename]
+        documents[:] = [document for document in documents if document["name"] != normalized_name]
         documents.append(entry)
-    return filename
+    return normalized_name
 
 
 def list_uploaded_documents(session_id: str) -> list[str]:
