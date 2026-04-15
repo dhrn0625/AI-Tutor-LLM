@@ -12,7 +12,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 
-from logic import clean_text, generate_answer, generate_structured_answer, normalize_level, summarize_text
+from logic import MEMORY_LIMIT, clean_text, generate_answer, generate_structured_answer, normalize_level, summarize_text
 from model import get_model
 from rag import add_uploaded_document, clear_uploaded_documents, list_uploaded_documents
 from youtube import recommend_videos
@@ -24,7 +24,7 @@ if not logger.handlers:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-SESSION_MEMORY_LIMIT = 10
+SESSION_MEMORY_LIMIT = MEMORY_LIMIT
 SESSION_MEMORY: dict[str, list[dict[str, object]]] = {}
 SESSION_MEMORY_LOCK = Lock()
 
